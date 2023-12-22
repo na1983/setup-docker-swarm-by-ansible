@@ -1,0 +1,44 @@
+---
+- name: Set up Docker Swarm
+  hosts: localhosts
+  become: true
+
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Initialize Swarm
+      command: docker swarm init --advertise-addr {{ 192.168.43.34}}
+      register: swarm_init
+      changed_when: "'already exists' not in swarm_init.stdout"
+
+    - name: Retrieve join token
+      command: docker swarm join-token -q worker
+      register: join_token
+
+  handlers:
+    - name: Save join token
+      copy:
+        content: "{{ join_token.stdout }}"
+        dest: /tmp/join_token.txt
+
+- name: Join Swarm as worker
+  hosts: swarm_workers
+  become: true
+
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Retrieve join token
+      fetch:
+        src: /tmp/join_token.txt
+        dest: /tmp/join_token.txt
+
+    - name: Join Swarm
+      command: docker swarm join --token {{ lookup('file', '/tmp/join_token.txt') }} {{ hostvars['swarm_manager']['ansible_host'] }}
+
