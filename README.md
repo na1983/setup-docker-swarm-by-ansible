@@ -1,0 +1,1 @@
+# setup-docker-swarm-by-ansible
